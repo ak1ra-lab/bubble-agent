@@ -253,15 +253,16 @@ def _build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
     args.append(["--share-net"])
     args.append(["--dev", "/dev"])
 
-    for flag, src, dst in [
-        ("--ro-bind", "/usr", "/usr"),
-        ("--ro-bind", "/etc", "/etc"),
-        ("--ro-bind-try", "/lib", "/lib"),
-        ("--ro-bind-try", "/lib64", "/lib64"),
-        ("--ro-bind-try", "/lib32", "/lib32"),
-        ("--ro-bind-try", "/sys", "/sys"),
-    ]:
-        args.append([flag, src, dst])
+    args.extend(
+        [
+            ["--ro-bind", "/usr", "/usr"],
+            ["--ro-bind", "/etc", "/etc"],
+            ["--ro-bind-try", "/lib", "/lib"],
+            ["--ro-bind-try", "/lib64", "/lib64"],
+            ["--ro-bind-try", "/lib32", "/lib32"],
+            ["--ro-bind-try", "/sys", "/sys"],
+        ]
+    )
 
     args.append(["--symlink", "usr/bin", "/bin"])
     args.append(["--symlink", "usr/sbin", "/sbin"])
@@ -291,6 +292,9 @@ def _build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
         else:
             dir_paths.append(expanded)
 
+    for dp in dir_paths:
+        args.append(["--bind-try", dp, dp])
+
     if ws_files:
         ws_dest = _expand_path("~/workspace")
         if opts.no_symlink:
@@ -305,15 +309,9 @@ def _build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
             for ws in ws_files:
                 args.extend(_parse_workspace(ws, ws_dest))
             args.append(["--chdir", ws_dest])
-
-        for dp in dir_paths:
-            args.append(["--bind-try", dp, dp])
     elif dir_paths:
-        for dp in dir_paths:
-            args.append(["--bind-try", dp, dp])
         args.append(["--dir", home])
         args.append(["--chdir", dir_paths[0]])
-
         if opts.no_symlink:
             logging.warning("--no-symlink has no effect without a .code-workspace file")
     else:
