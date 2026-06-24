@@ -215,8 +215,7 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     default_bin = os.environ.get("BUBBLE_AGENT_BIN", "opencode")
 
     parser = argparse.ArgumentParser(
-        description="Sandboxed agent runner using bubblewrap.  "
-        "Pass-through arguments are forwarded to the agent binary."
+        description="Run your coding agent in a bubble"
     )
     parser.add_argument(
         "paths",
@@ -231,6 +230,7 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help="Path to config file (default: %(default)s)",
     )
     parser.add_argument(
+        "-b",
         "--bin",
         default=default_bin,
         help="Agent binary to run (default: %(default)s)",
@@ -242,6 +242,7 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help="Do not symlink workspace folders (preserve original tree structure)",
     )
     parser.add_argument(
+        "-D",
         "--dry-run",
         action="store_true",
         help="Print bwrap command without executing",
@@ -371,9 +372,9 @@ def main(argv: list[str] | None = None) -> None:
         + ["--", bin_path]
         + agent_args
     )
-    logging.info(_fmt_bubble_cmd(args, bin_path, agent_args))
 
     if opts.dry_run:
+        logging.info(_fmt_bubble_cmd(args, bin_path, agent_args))
         sys.exit(0)
 
     os.execvp("bwrap", bubble_cmd)

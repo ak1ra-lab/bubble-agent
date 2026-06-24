@@ -24,7 +24,8 @@ sandbox with configurable bind mounts and virtual workspace support.
 - Config file values support `~` and `$VAR`/`${VAR}` expansion.
 - Config format: `type:source:destination`.
 - Logging goes to stderr.
-  - `--dry-run` logs the bwrap command and skips execution.
+  - `--dry-run` / `-D` prints the bwrap command to stderr and exits. Without
+  this flag, no command is logged.
 - Bwrap args are built as `list[list[str]]` (each inner list = one flag + its
   values), flattened at exec time.
 - CLI positional args accept directories and `.code-workspace` files (classified

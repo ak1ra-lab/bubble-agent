@@ -65,9 +65,9 @@ Override via CLI flags:
 | -------------------- | ------------------------------------------------------------------------- |
 | `[paths...]`         | auto-bind `$PWD` if none given                                            |
 | `-c`, `--config`     | `$BUBBLE_AGENT_CONFIG_FILE` or `~/.config/bubble-agent/bubble-agent.conf` |
-| `--bin`              | `$BUBBLE_AGENT_BIN` or `opencode`                                         |
+| `-b`, `--bin`        | `$BUBBLE_AGENT_BIN` or `opencode`                                         |
 | `-S`, `--no-symlink` | preserve original tree structure in workspace                             |
-| `--dry-run`          | print command only, do not execute                                        |
+| `-D`, `--dry-run`    | print command only, do not execute                                        |
 
 Environment variables `BUBBLE_AGENT_CONFIG_FILE` and `BUBBLE_AGENT_BIN` are still honored as fallback defaults.
 
