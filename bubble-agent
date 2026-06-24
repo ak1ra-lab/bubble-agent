@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Sandboxed coding-agent runner using bubblewrap with configurable bind
+Run your coding agent in a bubble.
+
+Uses bubblewrap to sandbox coding agents with configurable bind
 mounts and virtual workspace (.code-workspace) support.
 
 Requires: Python >= 3.11

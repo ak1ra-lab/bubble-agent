@@ -2,7 +2,10 @@
 
 > This project is inspired by [cyunrei/opencode-bwrap](https://github.com/cyunrei/opencode-bwrap).
 
-Sandboxed runtime for coding agents using [bubblewrap](https://github.com/containers/bubblewrap) with configurable bind mounts and virtual workspace support.
+Run your coding agent in a bubble.
+
+Uses [bubblewrap](https://github.com/containers/bubblewrap) to sandbox coding agents with configurable bind
+mounts and virtual workspace (.code-workspace) support.
 
 By default, the sandbox wraps [opencode](https://github.com/anomalyco/opencode). Use `--bin` to run a different coding agent.
 
