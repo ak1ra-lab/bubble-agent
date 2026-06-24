@@ -27,3 +27,8 @@ sandbox with configurable bind mounts and virtual workspace support.
   - `--dry-run` logs the bwrap command and skips execution.
 - Bwrap args are built as `list[list[str]]` (each inner list = one flag + its
   values), flattened at exec time.
+- CLI positional args accept directories and `.code-workspace` files (classified
+  by suffix).
+- `--no-symlink` / `-S` skips symlink creation for workspace folders, preserving
+  the original tree structure. Chdir goes to the first workspace file's parent
+  directory. Has no effect on plain directory args.
