@@ -30,5 +30,6 @@ sandbox with configurable bind mounts and virtual workspace support.
 - CLI positional args accept directories and `.code-workspace` files (classified
   by suffix).
 - `--no-symlink` / `-S` skips symlink creation for workspace folders, preserving
-  the original tree structure. Chdir goes to the first workspace file's parent
-  directory. Has no effect on plain directory args.
+  the original tree structure. Chdir goes to the deepest common ancestor of all
+  workspace folder paths (`os.path.commonpath`). Has no effect on plain
+  directory args.

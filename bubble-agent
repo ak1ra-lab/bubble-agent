@@ -104,6 +104,29 @@ def _parse_workspace(
     return result
 
 
+def _ws_folder_paths(ws_file: str) -> list[Path]:
+    f = Path(_expand_path(ws_file))
+    if not f.is_file():
+        return []
+    try:
+        data = json.loads(f.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    folders = data.get("folders")
+    if not folders:
+        return []
+    result: list[Path] = []
+    for folder in folders:
+        raw = folder.get("path", "")
+        if not raw:
+            continue
+        path = Path(raw)
+        if not path.is_absolute():
+            path = f.parent / path
+        result.append(path.expanduser().resolve())
+    return result
+
+
 _BIND_FLAG: dict[str, str] = {
     "bind": "--bind",
     "ro-bind": "--ro-bind",
@@ -302,7 +325,16 @@ def _build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
                 args.extend(_parse_workspace(ws, ws_dest, no_symlink=True))
             if not dir_paths:
                 args.append(["--dir", home])
-            args.append(["--chdir", str(Path(ws_files[0]).parent)])
+
+            all_folders: list[Path] = []
+            for ws in ws_files:
+                all_folders.extend(_ws_folder_paths(ws))
+            chdir = (
+                os.path.commonpath([str(f) for f in all_folders])
+                if all_folders
+                else str(Path(ws_files[0]).parent)
+            )
+            args.append(["--chdir", chdir])
         else:
             args.append(["--tmpfs", ws_dest])
             args.append(["--dir", home])

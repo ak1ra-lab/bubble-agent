@@ -104,7 +104,7 @@ Inside the sandbox:
 
 #### Preserving Original Tree (`-S` / `--no-symlink`)
 
-For projects like Ansible collections that depend on a specific directory layout, pass `-S` to skip symlink creation and chdir to the `.code-workspace` file's parent directory instead:
+For projects like Ansible collections that depend on a specific directory layout, pass `-S` to skip symlink creation and chdir to the deepest common ancestor of all workspace folders instead:
 
 ```shell
 bubble-agent -S ~/ansible.code-workspace
