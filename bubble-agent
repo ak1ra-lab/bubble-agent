@@ -59,7 +59,9 @@ def _has_unexpanded(s: str) -> bool:
     return "$" in s and _UNEXPANDED_RE.search(s) is not None
 
 
-def _parse_workspace(ws_file: str, dest: str) -> list[list[str]]:
+def _parse_workspace(
+    ws_file: str, dest: str, *, no_symlink: bool = False
+) -> list[list[str]]:
     f = Path(_expand_path(ws_file))
     if not f.is_file():
         logging.warning("Workspace file not found: %s", f)
@@ -86,6 +88,10 @@ def _parse_workspace(ws_file: str, dest: str) -> list[list[str]]:
         if not path.is_absolute():
             path = f.parent / path
         real = path.expanduser().resolve()
+        if no_symlink:
+            logging.info("[workspace] %s (no-symlink)", real)
+            result.append(["--bind-try", str(real), str(real)])
+            continue
         name = folder.get("name") or real.name
         if name in seen:
             seen[name] += 1
@@ -109,16 +115,14 @@ _BIND_FLAG: dict[str, str] = {
 }
 
 
-def _load_config(conf: Path) -> tuple[list[list[str]], tuple[str, str] | None]:
+def _load_config(conf: Path) -> list[list[str]]:
     if not conf.is_file():
-        return [], None
+        return []
 
     logging.info("Loading binds from: %s", conf)
     logging.info("----------------------------------------")
 
     args: list[list[str]] = []
-    ws_dir = _expand_path("~/workspace")
-    ws_spec: tuple[str, str] | None = None
     count = 0
 
     for line in conf.read_text(encoding="utf-8").splitlines():
@@ -133,11 +137,10 @@ def _load_config(conf: Path) -> tuple[list[list[str]], tuple[str, str] | None]:
         src = parts[1].strip()
         dst = parts[2].strip() if len(parts) > 2 else ""
 
-        if typ == "workspace":
-            ws_spec = (src, ws_dir)
-            continue
-        if typ == "workspace-path":
-            ws_dir = _expand_path(dst)
+        if typ in ("workspace", "workspace-path"):
+            logging.warning(
+                "[%s] config-based workspace is deprecated, use CLI args", typ
+            )
             continue
 
         flag = _BIND_FLAG.get(typ)
@@ -166,10 +169,18 @@ def _load_config(conf: Path) -> tuple[list[list[str]], tuple[str, str] | None]:
     logging.info("----------------------------------------")
     logging.info("Total custom binds loaded: %d", count)
     logging.info("")
-    return args, ws_spec
+    return args
 
 
 def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    try:
+        split_idx = argv.index("--")
+    except ValueError:
+        split_idx = len(argv)
+
+    cli_args = argv[:split_idx]
+    agent_args = argv[split_idx + 1 :] if split_idx < len(argv) else []
+
     default_config = Path(
         os.environ.get(
             "BUBBLE_AGENT_CONFIG_FILE",
@@ -181,6 +192,11 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
         description="Sandboxed agent runner using bubblewrap.  "
         "Pass-through arguments are forwarded to the agent binary."
+    )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Directories or .code-workspace files to bind into the sandbox",
     )
     parser.add_argument(
         "-c",
@@ -195,24 +211,17 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         help="Agent binary to run (default: %(default)s)",
     )
     parser.add_argument(
-        "--workspace",
-        action="append",
-        help="Path to .code-workspace file (may be repeated)",
+        "-S",
+        "--no-symlink",
+        action="store_true",
+        help="Do not symlink workspace folders (preserve original tree structure)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print bwrap command without executing",
     )
-    parser.add_argument(
-        "agent_args",
-        nargs=argparse.REMAINDER,
-        help="Arguments forwarded to the agent binary",
-    )
-    opts = parser.parse_args(argv)
-    agent_args = opts.agent_args
-    if agent_args and agent_args[0] == "--":
-        agent_args = agent_args[1:]
+    opts = parser.parse_args(cli_args)
     return opts, agent_args
 
 
@@ -269,29 +278,45 @@ def _build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
 
     args.extend(_resolv_conf_args())
 
-    config_groups, config_ws_spec = _load_config(opts.config)
+    config_groups = _load_config(opts.config)
     args.extend(config_groups)
 
-    ws_files = opts.workspace or []
-    ws_dest = _expand_path("~/workspace")
-    has_workspace = False
+    dir_paths: list[str] = []
+    ws_files: list[str] = []
+
+    for p in opts.paths or []:
+        expanded = _expand_path(p)
+        if expanded.endswith(".code-workspace"):
+            ws_files.append(expanded)
+        else:
+            dir_paths.append(expanded)
 
     if ws_files:
-        has_workspace = True
-        args.append(["--tmpfs", ws_dest])
-        args.append(["--dir", home])
-        for ws in ws_files:
-            args.extend(_parse_workspace(ws, ws_dest))
-        args.append(["--chdir", ws_dest])
-    elif config_ws_spec:
-        has_workspace = True
-        ws_file, ws_dest = config_ws_spec
-        args.append(["--tmpfs", ws_dest])
-        args.append(["--dir", home])
-        args.extend(_parse_workspace(ws_file, ws_dest))
-        args.append(["--chdir", ws_dest])
+        ws_dest = _expand_path("~/workspace")
+        if opts.no_symlink:
+            for ws in ws_files:
+                args.extend(_parse_workspace(ws, ws_dest, no_symlink=True))
+            if not dir_paths:
+                args.append(["--dir", home])
+            args.append(["--chdir", str(Path(ws_files[0]).parent)])
+        else:
+            args.append(["--tmpfs", ws_dest])
+            args.append(["--dir", home])
+            for ws in ws_files:
+                args.extend(_parse_workspace(ws, ws_dest))
+            args.append(["--chdir", ws_dest])
 
-    if not has_workspace:
+        for dp in dir_paths:
+            args.append(["--bind-try", dp, dp])
+    elif dir_paths:
+        for dp in dir_paths:
+            args.append(["--bind-try", dp, dp])
+        args.append(["--dir", home])
+        args.append(["--chdir", dir_paths[0]])
+
+        if opts.no_symlink:
+            logging.warning("--no-symlink has no effect without a .code-workspace file")
+    else:
         pwd = str(Path.cwd())
         args.append(["--bind", pwd, pwd])
         logging.info("[pwd] auto-binding cwd: %s", pwd)
