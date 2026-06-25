@@ -50,7 +50,20 @@ def _resolv_conf_args() -> list[list[str]]:
     return []
 
 
+_SHELL_VARS = {
+    "UID": str(os.getuid()),
+    "EUID": str(os.geteuid()),
+    "GID": str(os.getgid()),
+    "EGID": str(os.getegid()),
+}
+
+_SHELL_VAR_RE = re.compile(
+    r"\$\{(UID|EUID|GID|EGID)\}|\$(UID|EUID|GID|EGID)(?![A-Za-z0-9_])"
+)
+
+
 def _expand_path(s: str) -> str:
+    s = _SHELL_VAR_RE.sub(lambda m: _SHELL_VARS[m.group(1) or m.group(2)], s)
     return os.path.expandvars(os.path.expanduser(s))
 
 
@@ -214,9 +227,7 @@ def _parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     ).expanduser()
     default_bin = os.environ.get("BUBBLE_AGENT_BIN", "opencode")
 
-    parser = argparse.ArgumentParser(
-        description="Run your coding agent in a bubble"
-    )
+    parser = argparse.ArgumentParser(description="Run your coding agent in a bubble")
     parser.add_argument(
         "paths",
         nargs="*",

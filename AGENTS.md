@@ -21,7 +21,8 @@ sandbox with configurable bind mounts and virtual workspace support.
 - Prefer `pathlib.Path` for all path operations instead of `os.path`.
 - Workspace folder paths from `.code-workspace` files must go through
   `.expanduser().resolve()` unconditionally.
-- Config file values support `~` and `$VAR`/`${VAR}` expansion.
+- Config file values support `~`, `$VAR`/`${VAR}`, and shell built-in vars
+  (`UID`, `EUID`, `GID`, `EGID`).
 - Config format: `type:source:destination`.
 - Logging goes to stderr.
   - `--dry-run` / `-D` prints the bwrap command to stderr and exits. Without
