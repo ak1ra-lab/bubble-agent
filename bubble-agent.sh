@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 
-# bwrap agent wrapper using bubblewrap with configurable binds
-# Config file: ~/.config/bwrap-agent/bwrap-agent.conf
+# Run your coding agent in a bubble. (Bash implementation)
+#
+# Uses bubblewrap to sandbox coding agents with configurable
+# bind mounts. Kept in sync with bubble-agent (Python).
+#
+# Config: ~/.config/bubble-agent/bubble-agent.conf
 
 set -o errexit -o nounset -o errtrace
 
 # Configuration
-readonly CONFIG_DIR="${BWRAP_AGENT_CONFIG_DIR:-${HOME}/.config/bwrap-agent}"
-readonly CONFIG_FILE="${BWRAP_AGENT_CONFIG_FILE:-${CONFIG_DIR}/bwrap-agent.conf}"
-readonly TARGET_BIN="${BWRAP_AGENT_BIN:-opencode}"
+readonly CONFIG_DIR="${BUBBLE_AGENT_CONFIG_DIR:-${HOME}/.config/bubble-agent}"
+readonly CONFIG_FILE="${BUBBLE_AGENT_CONFIG_FILE:-${CONFIG_DIR}/bubble-agent.conf}"
+readonly TARGET_BIN="${BUBBLE_AGENT_BIN:-opencode}"
 
 # Logging Subsystem
 declare -g LOG_LEVEL="${LOG_LEVEL:-INFO}"
@@ -85,9 +89,13 @@ expand_env_vars() {
 }
 
 # Load bind mounts from config file into the target array
+# Also collects path-prepend and path-append entries
 load_config_binds() {
     local config_file="$1"
     local -n out_args="$2"
+    local -n out_path_prepend="$3"
+    local -n out_path_append="$4"
+    local has_explicit_path=0
     local count=0
 
     log_info "Loading binds from: ${config_file}"
@@ -99,7 +107,7 @@ load_config_binds() {
         local bind_type src dest
         IFS=':' read -r bind_type src dest <<<"${line}"
         [[ -z "${bind_type}" || -z "${src}" ]] && continue
-        if [[ -z "${dest}" && ! "${bind_type}" =~ ^(env|setenv)$ ]]; then
+        if [[ -z "${dest}" && ! "${bind_type}" =~ ^(env|setenv|path-prepend|path-append)$ ]]; then
             continue
         fi
 
@@ -122,8 +130,21 @@ load_config_binds() {
                 count=$((count + 1))
                 ;;
             env | setenv)
+                if [[ "${src}" == "PATH" ]]; then
+                    has_explicit_path=1
+                fi
                 out_args+=(--setenv "${src}" "${dest}")
                 log_info "[env] ${src}=${dest}"
+                count=$((count + 1))
+                ;;
+            path-prepend)
+                out_path_prepend+=("${src}")
+                log_info "[path-prepend] ${src}"
+                count=$((count + 1))
+                ;;
+            path-append)
+                out_path_append+=("${src}")
+                log_info "[path-append] ${src}"
                 count=$((count + 1))
                 ;;
         esac
@@ -132,6 +153,8 @@ load_config_binds() {
     log_info "----------------------------------------"
     log_info "Total custom binds loaded: ${count}"
     log_info ""
+
+    return "${has_explicit_path}"
 }
 
 # Main function
@@ -143,16 +166,12 @@ main() {
 
     local args=(
         --unshare-pid
-        --unshare-uts
-        --unshare-ipc
-        --unshare-cgroup
         --die-with-parent
         --new-session
         --clearenv
         --setenv HOME "${HOME}"
-        --setenv USER "${USER}"
-        --setenv LOGNAME "${LOGNAME}"
-        --setenv PATH "${PATH}"
+        --setenv USER "${USER:-}"
+        --setenv LOGNAME "${LOGNAME:-}"
         --setenv TERM "${TERM:-}"
         --setenv LANG "${LANG:-C.UTF-8}"
         --setenv SHELL "${SHELL:-/bin/sh}"
@@ -160,7 +179,7 @@ main() {
         --dev /dev
         --ro-bind /usr /usr
         --ro-bind /etc /etc
-        --ro-bind /lib /lib
+        --ro-bind-try /lib /lib
         --ro-bind-try /lib64 /lib64
         --ro-bind-try /lib32 /lib32
         --ro-bind-try /sys /sys
@@ -169,6 +188,10 @@ main() {
         --proc /proc
         --tmpfs /tmp
         --tmpfs /run
+        --dir "/run/user/$(id -u)"
+        --setenv XDG_RUNTIME_DIR "/run/user/$(id -u)"
+        --dir /var
+        --symlink ../tmp var/tmp
     )
 
     if [[ -L /etc/resolv.conf ]]; then
@@ -182,8 +205,46 @@ main() {
         fi
     fi
 
+    local path_prepend=() path_append=()
+    local has_explicit_path=0
+
     if [[ -f "${CONFIG_FILE}" ]]; then
-        load_config_binds "${CONFIG_FILE}" args
+        has_explicit_path=0
+        load_config_binds "${CONFIG_FILE}" args path_prepend path_append || has_explicit_path=$?
+    fi
+
+    # Build PATH: prepend dirs + inherited host PATH + append dirs (unless explicit)
+    local merged_path
+    if [[ "${has_explicit_path}" -eq 0 ]]; then
+        local -a all_paths=()
+        local -A seen=()
+        for p in "${path_prepend[@]}"; do
+            if [[ -n "${p}" && -z "${seen[${p}]:-}" ]]; then
+                seen["${p}"]=1
+                all_paths+=("${p}")
+            fi
+        done
+        local IFS=':'
+        for p in ${PATH}; do
+            if [[ -n "${p}" && -z "${seen[${p}]:-}" ]]; then
+                seen["${p}"]=1
+                all_paths+=("${p}")
+            fi
+        done
+        for p in "${path_append[@]}"; do
+            if [[ -n "${p}" && -z "${seen[${p}]:-}" ]]; then
+                seen["${p}"]=1
+                all_paths+=("${p}")
+            fi
+        done
+        merged_path="$(
+            IFS=':'
+            echo "${all_paths[*]}"
+        )"
+    fi
+
+    if [[ -n "${merged_path:-}" ]]; then
+        args+=(--setenv PATH "${merged_path}")
     fi
 
     log_debug "bwrap args: ${args[*]} -- ${target_bin_path} ${*}"
