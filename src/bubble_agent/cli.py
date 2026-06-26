@@ -30,6 +30,11 @@ def create_parser(
     default_config: Path | None = None,
     default_bin: str = "opencode",
 ) -> argparse.ArgumentParser:
+    """Build the argument parser.
+
+    *default_config* and *default_bin* can be overridden via environment
+    variables ``BUBBLE_AGENT_CONFIG_FILE`` and ``BUBBLE_AGENT_BIN``.
+    """
     if default_config is None:
         default_config = Path(
             os.environ.get(
@@ -81,6 +86,11 @@ def create_parser(
 
 
 def parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    """Split *argv* at ``--`` into bubble-agent options and agent args.
+
+    Everything before ``--`` is parsed by :func:`create_parser`; everything
+    after is forwarded to the agent binary unchanged.
+    """
     try:
         split_idx = argv.index("--")
     except ValueError:
@@ -104,9 +114,11 @@ def parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
 
 
 def _launch(args: list[list[str]], bin_path: str, agent_args: list[str]) -> None:
-    """
-    Feed bwrap options via ``--args <fd>``, patch ``/etc/profile``,
-    and execute bwrap via :func:`subprocess.run`.
+    """Feed bwrap options via ``--args <fd>`` and execute the sandbox.
+
+    Serializes *args* into a NUL-separated pipe for ``--args <fd>``,
+    patches ``/etc/profile`` to preserve the sandbox ``PATH``, and runs
+    bwrap via :func:`subprocess.run` with explicit ``pass_fds``.
 
     Does not return — calls :func:`sys.exit` with bwrap's exit code.
     """
@@ -144,6 +156,12 @@ def _launch(args: list[list[str]], bin_path: str, agent_args: list[str]) -> None
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    """Entry point: parse CLI, build sandbox, and launch the agent.
+
+    On ``--dry-run``, prints the equivalent ``bwrap`` command to stderr and
+    exits.  Otherwise, serializes sandbox configuration into anonymous pipes
+    and delegates execution to :func:`_launch`.
+    """
     if argv is None:
         argv = sys.argv[1:]
 

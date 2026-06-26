@@ -12,6 +12,11 @@ from bubble_agent.workspace import parse_workspace, ws_folder_paths
 def fmt_bubble_cmd(
     groups: list[list[str]], bin_path: str, agent_args: list[str]
 ) -> str:
+    """Format a ``bwrap`` command-line string for ``--dry-run`` output.
+
+    Each group in *groups* is joined with spaces; groups are separated by
+    `` \\\n  `` for readability.
+    """
     items: list[str] = ["bwrap"]
     for g in groups:
         items.append(" ".join(g))
@@ -50,11 +55,11 @@ _PATH_BLOCK_RE = re.compile(
 
 
 def patch_etc_profile(custom_path: str) -> bytes:
-    """
-    Return a patched ``/etc/profile`` that keeps *custom_path* in effect.
+    """Return a patched ``/etc/profile`` that keeps *custom_path* in effect.
 
-    Removes the standard ``id -u`` PATH-initialization block from the host
-    ``/etc/profile`` and appends *custom_path* at the end so it always wins.
+    The standard ``id -u`` PATH-initialization block is removed and
+    *custom_path* is appended at the end so it always wins.  All other
+    content (``/etc/bash.bashrc``, ``/etc/profile.d/*``, …) is preserved.
     """
     try:
         original = Path("/etc/profile").read_text()
@@ -67,6 +72,11 @@ def patch_etc_profile(custom_path: str) -> bytes:
 
 
 def resolv_conf_args() -> list[list[str]]:
+    """Bind-resolve ``/etc/resolv.conf`` when it is a symlink.
+
+    Returns the ``--ro-bind`` entry for the parent directory of the
+    symlink target, or an empty list when nothing needs to be done.
+    """
     resolv = Path("/etc/resolv.conf")
     if not resolv.is_symlink():
         return []
@@ -81,6 +91,11 @@ def resolv_conf_args() -> list[list[str]]:
 
 
 def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
+    """Build the full list of bwrap argument groups from CLI *opts*.
+
+    Combines fixed sandbox setup (namespaces, mounts, env vars) with
+    entries from the config file and positional path arguments.
+    """
     home = os.environ.get("HOME", str(Path.home()))
     user = os.environ.get("USER") or os.environ.get("LOGNAME") or getpass.getuser()
     logname = os.environ.get("LOGNAME") or user

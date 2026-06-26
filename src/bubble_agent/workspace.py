@@ -8,6 +8,12 @@ from bubble_agent.config import expand_path
 def parse_workspace(
     ws_file: str, dest: str, *, no_symlink: bool = False
 ) -> list[list[str]]:
+    """Parse a ``.code-workspace`` file into bwrap bind/symlink groups.
+
+    Binds each folder at its real path and, unless *no_symlink* is set,
+    creates a symlink under *dest* with the folder name.  Duplicate folder
+    names are disambiguated with a parent-directory prefix.
+    """
     f = Path(ws_file)
     if not f.is_file():
         logging.warning("Workspace file not found: %s", f)
@@ -55,6 +61,11 @@ def parse_workspace(
 
 
 def ws_folder_paths(ws_file: str) -> list[Path]:
+    """Return the resolved folder paths from a ``.code-workspace`` file.
+
+    Relative paths are resolved against the workspace file's parent
+    directory.  Each path goes through ``.expanduser().resolve()``.
+    """
     f = Path(ws_file)
     if not f.is_file():
         return []

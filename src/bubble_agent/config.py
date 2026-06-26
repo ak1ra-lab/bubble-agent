@@ -28,17 +28,30 @@ BIND_FLAG: dict[str, str] = {
 
 
 def expand_path(s: str) -> str:
+    """Expand ``$UID``/``${EUID}``/..., ``$VAR``, ``~`` in *s*.
+
+    Shell built-in vars (``UID``, ``EUID``, ``GID``, ``EGID``) are
+    resolved from the process, then :func:`os.path.expandvars` and
+    :func:`os.path.expanduser` handle the rest.
+    """
     s = SHELL_VAR_RE.sub(lambda m: SHELL_VARS[m.group(1) or m.group(2)], s)
     return os.path.expandvars(os.path.expanduser(s))
 
 
 def has_unexpanded(s: str) -> bool:
+    """Return ``True`` if *s* appears to contain an unexpanded variable."""
     return "$" in s and UNEXPANDED_RE.search(s) is not None
 
 
 def load_config(
     conf: Path,
 ) -> tuple[list[list[str]], list[str], list[str]]:
+    """Parse a config file and return ``(bind_args, path_prepend, path_append)``.
+
+    Lines are of the form ``type:source:destination`` (see docs for the
+    full list of bind types).  ``#`` starts a comment; blank lines are
+    ignored.  Returns empty lists when *conf* does not exist.
+    """
     if not conf.is_file():
         return [], [], []
 
