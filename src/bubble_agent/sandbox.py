@@ -2,6 +2,7 @@ import argparse
 import getpass
 import logging
 import os
+import re
 from pathlib import Path
 
 from bubble_agent.config import expand_path, load_config
@@ -21,8 +22,7 @@ def fmt_bubble_cmd(
 
 
 def make_data_fd(data: bytes) -> int:
-    """
-    Write *data* into a pipe and return the read-end file descriptor.
+    """Write *data* into a pipe and return the read-end file descriptor.
 
     The caller is responsible for closing the returned fd.
     Intended for passing arbitrary payloads to subprocesses via ``pass_fds``
@@ -39,6 +39,31 @@ def make_data_fd(data: bytes) -> int:
     finally:
         os.close(w_fd)
     return r_fd
+
+
+_PATH_BLOCK_RE = re.compile(
+    r'if\s+\[\s*"\$\(id\s+-u\)"[^;]*;\s*then\b'
+    r".*?"
+    r"\bfi\b\s*\n\s*export\s+PATH\s*\n?",
+    re.DOTALL,
+)
+
+
+def patch_etc_profile(custom_path: str) -> bytes:
+    """
+    Return a patched ``/etc/profile`` that keeps *custom_path* in effect.
+
+    Removes the standard ``id -u`` PATH-initialization block from the host
+    ``/etc/profile`` and appends *custom_path* at the end so it always wins.
+    """
+    try:
+        original = Path("/etc/profile").read_text()
+    except OSError:
+        original = ""
+
+    patched = _PATH_BLOCK_RE.sub("", original)
+    patched = patched.rstrip("\n") + f'\nPATH="{custom_path}"\nexport PATH\n'
+    return patched.encode()
 
 
 def resolv_conf_args() -> list[list[str]]:

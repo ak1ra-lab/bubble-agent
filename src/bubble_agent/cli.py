@@ -12,7 +12,12 @@ from typing import Sequence
 import argcomplete
 
 from bubble_agent import __version__
-from bubble_agent.sandbox import build_bubble_args, fmt_bubble_cmd, make_data_fd
+from bubble_agent.sandbox import (
+    build_bubble_args,
+    fmt_bubble_cmd,
+    make_data_fd,
+    patch_etc_profile,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,6 +103,46 @@ def parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     return opts, agent_args
 
 
+def _launch(args: list[list[str]], bin_path: str, agent_args: list[str]) -> None:
+    """
+    Feed bwrap options via ``--args <fd>``, patch ``/etc/profile``,
+    and execute bwrap via :func:`subprocess.run`.
+
+    Does not return — calls :func:`sys.exit` with bwrap's exit code.
+    """
+    bwrap_payload = [item for group in args for item in group]
+    args_data = b"\0".join(a.encode("utf-8") for a in bwrap_payload) + b"\0"
+    args_fd = make_data_fd(args_data)
+
+    path_value = next(
+        (g[2] for g in reversed(args) if g[0] == "--setenv" and g[1] == "PATH"),
+        os.environ.get("PATH", ""),
+    )
+    profile_fd = make_data_fd(patch_etc_profile(path_value))
+
+    bubble_cmd = [
+        "bwrap",
+        "--args",
+        str(args_fd),
+        "--ro-bind-data",
+        str(profile_fd),
+        "/etc/profile",
+        "--",
+        bin_path,
+    ] + agent_args
+
+    try:
+        result = subprocess.run(bubble_cmd, pass_fds=[args_fd, profile_fd])
+    except FileNotFoundError:
+        logging.error("bwrap not found in PATH")
+        sys.exit(1)
+    finally:
+        os.close(args_fd)
+        os.close(profile_fd)
+
+    sys.exit(result.returncode)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     if argv is None:
         argv = sys.argv[1:]
@@ -111,18 +156,4 @@ def main(argv: Sequence[str] | None = None) -> None:
         logging.info(fmt_bubble_cmd(args, bin_path, agent_args))
         sys.exit(0)
 
-    bwrap_payload = [item for group in args for item in group]
-    data = b"\0".join(a.encode("utf-8") for a in bwrap_payload) + b"\0"
-    r_fd = make_data_fd(data)
-
-    bubble_cmd = ["bwrap", "--args", str(r_fd), "--", bin_path] + agent_args
-
-    try:
-        result = subprocess.run(bubble_cmd, pass_fds=[r_fd])
-    except FileNotFoundError:
-        logging.error("bwrap not found in PATH")
-        sys.exit(1)
-    finally:
-        os.close(r_fd)
-
-    sys.exit(result.returncode)
+    _launch(args, bin_path, agent_args)
