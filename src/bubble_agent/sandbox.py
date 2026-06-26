@@ -1,4 +1,5 @@
 import argparse
+import getpass
 import logging
 import os
 from pathlib import Path
@@ -35,8 +36,8 @@ def resolv_conf_args() -> list[list[str]]:
 
 def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
     home = os.environ.get("HOME", str(Path.home()))
-    user = os.environ.get("USER", "")
-    logname = os.environ.get("LOGNAME", user)
+    user = os.environ.get("USER") or os.environ.get("LOGNAME") or getpass.getuser()
+    logname = os.environ.get("LOGNAME") or user
     shell = os.environ.get("SHELL", "/bin/sh")
     uid = os.getuid()
 
@@ -52,8 +53,8 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
             ["--setenv", "HOME", home],
             ["--setenv", "USER", user],
             ["--setenv", "LOGNAME", logname],
-            ["--setenv", "TERM", os.environ.get("TERM", "")],
-            ["--setenv", "LANG", os.environ.get("LANG", "C.UTF-8")],
+            ["--setenv", "TERM", os.environ.get("TERM", "xterm-256color")],
+            ["--setenv", "LANG", os.environ.get("LANG", "en_US.UTF-8")],
             ["--setenv", "SHELL", shell],
         ]
     )
@@ -89,7 +90,7 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
 
     config_groups, path_prepend, path_append = load_config(opts.config)
 
-    path_value = next(
+    explicit_path = next(
         (
             g[2]
             for g in reversed(config_groups)
@@ -98,21 +99,28 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
         None,
     )
 
-    if path_value is None:
+    if explicit_path is not None:
+        config_groups = [
+            g for g in config_groups if not (g[0] == "--setenv" and g[1] == "PATH")
+        ]
+        base_parts = explicit_path.split(":") if explicit_path else []
+        all_paths = list(path_prepend) + base_parts + list(path_append)
+    else:
         base_path = os.environ.get("PATH", "")
         all_paths = (
             list(path_prepend)
             + (base_path.split(":") if base_path else [])
             + list(path_append)
         )
-        seen: set[str] = set()
-        merged: list[str] = []
-        for p in all_paths:
-            if p and p not in seen:
-                seen.add(p)
-                merged.append(p)
-        path_value = ":".join(merged)
-        args.append(["--setenv", "PATH", path_value])
+
+    seen: set[str] = set()
+    merged: list[str] = []
+    for p in all_paths:
+        if p and p not in seen:
+            seen.add(p)
+            merged.append(p)
+    path_value = ":".join(merged)
+    args.append(["--setenv", "PATH", path_value])
 
     args.extend(config_groups)
 
@@ -122,7 +130,15 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
     for p in opts.paths or []:
         expanded = expand_path(p)
         if expanded.endswith(".code-workspace"):
-            ws_files.append(expanded)
+            if os.path.isfile(expanded):
+                ws_files.append(expanded)
+            else:
+                logging.warning(
+                    "[path] %s looks like a workspace file but "
+                    "is not a regular file, treating as directory",
+                    expanded,
+                )
+                dir_paths.append(expanded)
         else:
             dir_paths.append(expanded)
 
@@ -130,10 +146,9 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
         args.append(["--bind-try", dp, dp])
 
     if ws_files:
-        ws_dest = expand_path("~/workspace")
         if opts.no_symlink:
             for ws in ws_files:
-                args.extend(parse_workspace(ws, ws_dest, no_symlink=True))
+                args.extend(parse_workspace(ws, "", no_symlink=True))
             args.append(["--dir", home])
 
             all_folders: list[Path] = []
@@ -146,6 +161,7 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
             )
             args.append(["--chdir", chdir])
         else:
+            ws_dest = expand_path("~/workspace")
             args.append(["--tmpfs", ws_dest])
             args.append(["--dir", home])
             for ws in ws_files:
@@ -160,6 +176,7 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
         pwd = str(Path.cwd())
         args.append(["--dir", home])
         args.append(["--bind", pwd, pwd])
+        args.append(["--chdir", pwd])
         logging.info("[pwd] auto-binding cwd: %s", pwd)
 
     return args

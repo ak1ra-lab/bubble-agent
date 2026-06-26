@@ -117,4 +117,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         logging.info(fmt_bubble_cmd(args, bin_path, agent_args))
         sys.exit(0)
 
-    os.execvp("bwrap", bubble_cmd)
+    try:
+        os.execvp("bwrap", bubble_cmd)
+    except OSError as exc:
+        logging.error("Failed to execute bwrap: %s", exc)
+        sys.exit(1)

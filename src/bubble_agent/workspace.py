@@ -8,7 +8,7 @@ from bubble_agent.config import expand_path
 def parse_workspace(
     ws_file: str, dest: str, *, no_symlink: bool = False
 ) -> list[list[str]]:
-    f = Path(expand_path(ws_file))
+    f = Path(ws_file)
     if not f.is_file():
         logging.warning("Workspace file not found: %s", f)
         return []
@@ -22,10 +22,10 @@ def parse_workspace(
         logging.warning("Workspace file %s has no 'folders'", f)
         return []
 
-    ws_root = Path(expand_path(dest))
+    ws_root = Path(expand_path(dest)) if dest else Path()
     result: list[list[str]] = []
 
-    seen: dict[str, int] = {}
+    seen: set[str] = set()
     for folder in folders:
         raw = folder.get("path", "")
         if not raw:
@@ -40,10 +40,14 @@ def parse_workspace(
             continue
         name = folder.get("name") or real.name
         if name in seen:
-            seen[name] += 1
-            name = f"{name}_{seen[name]}"
-        else:
-            seen[name] = 0
+            parent_name = real.parent.name or "root"
+            name = f"{parent_name}_{name}"
+            if name in seen:
+                suffix = 2
+                while f"{name}_{suffix}" in seen:
+                    suffix += 1
+                name = f"{name}_{suffix}"
+        seen.add(name)
         logging.info("[workspace] %s -> %s/%s", real, ws_root, name)
         result.append(["--bind-try", str(real), str(real)])
         result.append(["--symlink", str(real), f"{ws_root}/{name}"])
@@ -51,7 +55,7 @@ def parse_workspace(
 
 
 def ws_folder_paths(ws_file: str) -> list[Path]:
-    f = Path(expand_path(ws_file))
+    f = Path(ws_file)
     if not f.is_file():
         return []
     try:
