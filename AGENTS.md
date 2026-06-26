@@ -43,7 +43,13 @@ Source lives under `src/bubble_agent/` with these modules:
   - `--dry-run` / `-D` prints the bwrap command to stderr and exits. Without
   this flag, no command is logged.
 - Bwrap args are built as `list[list[str]]` (each inner list = one flag + its
-  values), flattened at exec time.
+  values), then serialized NUL-separated into an anonymous pipe and passed via
+  `--args <fd>` for a clean `ps` listing.
+- `subprocess.run` with `pass_fds` is used for reliable fd inheritance
+  (preferred over `os.execvp`).
+- `/etc/profile` inside the sandbox is patched via `--ro-bind-data` to remove
+  the standard ``id -u`` PATH-initialization block and preserve the sandbox
+  PATH set by `--setenv`.
 - CLI positional args accept directories and `.code-workspace` files (classified
   by suffix).
 - `--no-symlink` / `-S` skips symlink creation for workspace folders, preserving

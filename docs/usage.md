@@ -27,6 +27,15 @@ bubble-agent -- --prompt "write a test"   # opencode flags
 
 Environment variables `BUBBLE_AGENT_CONFIG_FILE` and `BUBBLE_AGENT_BIN` are honored as fallback defaults.
 
+!!! tip
+    Sandbox arguments are passed via ``--args <fd>``, keeping the
+    process listing clean:
+
+    ```
+    $ ps -ef | grep bwrap
+    bwrap --args 3 -- /path/to/opencode
+    ```
+
 ## Examples
 
 ```shell

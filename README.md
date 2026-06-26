@@ -8,7 +8,7 @@
 
 Run your coding agent in a bubble.
 
-Uses [bubblewrap](https://github.com/containers/bubblewrap) to sandbox coding agents with configurable bind mounts and virtual workspace (`.code-workspace`) support.
+Uses [bubblewrap](https://github.com/containers/bubblewrap) to sandbox coding agents with configurable bind mounts and virtual workspace (`.code-workspace`) support.  Sandbox arguments are passed via ``--args <fd>`` for clean process listings, and ``/etc/profile`` is automatically patched to prevent login shells from resetting the custom ``PATH``.
 
 By default, the sandbox wraps [opencode](https://github.com/anomalyco/opencode). Use `--bin` to run a different coding agent.
 
