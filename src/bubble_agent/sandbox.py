@@ -20,6 +20,27 @@ def fmt_bubble_cmd(
     return " \\\n  ".join(items)
 
 
+def make_data_fd(data: bytes) -> int:
+    """
+    Write *data* into a pipe and return the read-end file descriptor.
+
+    The caller is responsible for closing the returned fd.
+    Intended for passing arbitrary payloads to subprocesses via ``pass_fds``
+    (e.g. bwrap ``--args <fd>``).
+    """
+    r_fd, w_fd = os.pipe()
+    try:
+        while data:
+            try:
+                n = os.write(w_fd, data)
+            except InterruptedError:
+                continue
+            data = data[n:]
+    finally:
+        os.close(w_fd)
+    return r_fd
+
+
 def resolv_conf_args() -> list[list[str]]:
     resolv = Path("/etc/resolv.conf")
     if not resolv.is_symlink():

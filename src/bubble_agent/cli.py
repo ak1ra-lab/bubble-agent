@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -11,7 +12,7 @@ from typing import Sequence
 import argcomplete
 
 from bubble_agent import __version__
-from bubble_agent.sandbox import build_bubble_args, fmt_bubble_cmd
+from bubble_agent.sandbox import build_bubble_args, fmt_bubble_cmd, make_data_fd
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,19 +107,22 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     args = build_bubble_args(opts)
 
-    bubble_cmd = (
-        ["bwrap"]
-        + [item for group in args for item in group]
-        + ["--", bin_path]
-        + agent_args
-    )
-
     if opts.dry_run:
         logging.info(fmt_bubble_cmd(args, bin_path, agent_args))
         sys.exit(0)
 
+    bwrap_payload = [item for group in args for item in group]
+    data = b"\0".join(a.encode("utf-8") for a in bwrap_payload) + b"\0"
+    r_fd = make_data_fd(data)
+
+    bubble_cmd = ["bwrap", "--args", str(r_fd), "--", bin_path] + agent_args
+
     try:
-        os.execvp("bwrap", bubble_cmd)
-    except OSError as exc:
-        logging.error("Failed to execute bwrap: %s", exc)
+        result = subprocess.run(bubble_cmd, pass_fds=[r_fd])
+    except FileNotFoundError:
+        logging.error("bwrap not found in PATH")
         sys.exit(1)
+    finally:
+        os.close(r_fd)
+
+    sys.exit(result.returncode)
