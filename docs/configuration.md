@@ -55,4 +55,12 @@ ro-bind:~/.bashrc:~/.bashrc
 !!! note
     Since `--clearenv` is applied, even bound rc files won't be sourced automatically — the agent would need to explicitly source them. Most coding agents don't need this.
 
-For security, **only configured paths are accessible** inside the sandbox. Copy `bubble-agent.example.conf` to `~/.config/bubble-agent/bubble-agent.conf` and customize — it documents all available bind types and includes recommended toolchain, git, and agent entries.
+For security, **only configured paths are accessible** inside the sandbox. Download the example config and customize it:
+
+```shell
+mkdir -p ~/.config/bubble-agent
+curl -o ~/.config/bubble-agent/bubble-agent.conf \
+  https://raw.githubusercontent.com/ak1ra-lab/bubble-agent/master/bubble-agent.example.conf
+```
+
+It documents all available bind types and includes recommended toolchain, git, and agent entries.

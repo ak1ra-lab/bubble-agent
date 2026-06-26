@@ -14,10 +14,21 @@ By default, the sandbox wraps [opencode](https://github.com/anomalyco/opencode).
 ## Quick Start
 
 ```shell
+# From PyPI
+uv tool install bubble-agent
+
+# Or from GitHub
+uv tool install git+https://github.com/ak1ra-lab/bubble-agent.git
+
+# Or from local clone
 git clone https://github.com/ak1ra-lab/bubble-agent.git
 cd bubble-agent
-just install
+uv tool install .
+```
 
+Then run:
+
+```shell
 bubble-agent                              # runs opencode by default
 bubble-agent ~/my-project                 # work in a specific directory
 bubble-agent --dry-run                    # preview the bwrap command
