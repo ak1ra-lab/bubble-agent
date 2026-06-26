@@ -1,5 +1,10 @@
 # bubble-agent
 
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ak1ra-lab/bubble-agent/.github%2Fworkflows%2Fpublish-to-pypi.yaml)](https://github.com/ak1ra-lab/bubble-agent/actions/workflows/publish-to-pypi.yaml)
+[![PyPI - Version](https://img.shields.io/pypi/v/bubble-agent)](https://pypi.org/project/bubble-agent/)
+[![PyPI - Version](https://img.shields.io/pypi/v/bubble-agent?label=test-pypi&pypiBaseUrl=https%3A%2F%2Ftest.pypi.org)](https://test.pypi.org/project/bubble-agent/)
+[![Docs](https://img.shields.io/badge/docs-online-0a7ea4)](https://ak1ra-lab.github.io/bubble-agent/)
+
 > This project is inspired by [cyunrei/opencode-bwrap](https://github.com/cyunrei/opencode-bwrap).
 
 Run your coding agent in a bubble.
