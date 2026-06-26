@@ -1,43 +1,120 @@
 # PYTHON_ARGCOMPLETE_OK
 
 import argparse
+import logging
+import os
+import shutil
 import sys
-from typing import NoReturn, Sequence
+from pathlib import Path
+from typing import Sequence
 
 import argcomplete
 
 from bubble_agent import __version__
+from bubble_agent.sandbox import build_bubble_args, fmt_bubble_cmd
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    stream=sys.stderr,
+)
 
 
-def create_parser() -> argparse.ArgumentParser:
+def create_parser(
+    default_config: Path | None = None,
+    default_bin: str = "opencode",
+) -> argparse.ArgumentParser:
+    if default_config is None:
+        default_config = Path(
+            os.environ.get(
+                "BUBBLE_AGENT_CONFIG_FILE",
+                "~/.config/bubble-agent/bubble-agent.conf",
+            )
+        ).expanduser()
+
     parser = argparse.ArgumentParser(
         description="Run your coding agent in a bubble.",
     )
     parser.add_argument(
+        "-V",
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
     )
-    subparsers = parser.add_subparsers(dest="command", title="commands")
-    info_parser = subparsers.add_parser("info", help="Show project information")
-    info_parser.set_defaults(func=_cmd_info)
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Directories or .code-workspace files to bind into the sandbox",
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        default=default_config,
+        help="Path to config file (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-b",
+        "--bin",
+        default=default_bin,
+        help="Agent binary to run (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-S",
+        "--no-symlink",
+        action="store_true",
+        help="Do not symlink workspace folders (preserve original tree structure)",
+    )
+    parser.add_argument(
+        "-D",
+        "--dry-run",
+        action="store_true",
+        help="Print bwrap command without executing",
+    )
     return parser
 
 
-def _cmd_info(_args: argparse.Namespace) -> None:
-    print("bubble-agent is ready.")
+def parse_cli(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    try:
+        split_idx = argv.index("--")
+    except ValueError:
+        split_idx = len(argv)
 
+    cli_args = argv[:split_idx]
+    agent_args = argv[split_idx + 1 :] if split_idx < len(argv) else []
 
-def _exit_help(parser: argparse.ArgumentParser) -> NoReturn:
-    parser.print_help()
-    sys.exit(1)
+    default_config = Path(
+        os.environ.get(
+            "BUBBLE_AGENT_CONFIG_FILE",
+            "~/.config/bubble-agent/bubble-agent.conf",
+        )
+    ).expanduser()
+    default_bin = os.environ.get("BUBBLE_AGENT_BIN", "opencode")
+
+    parser = create_parser(default_config, default_bin)
+    argcomplete.autocomplete(parser)
+    opts = parser.parse_args(cli_args)
+    return opts, agent_args
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    parser = create_parser()
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args(argv)
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        _exit_help(parser)
+    if argv is None:
+        argv = sys.argv[1:]
+
+    opts, agent_args = parse_cli(list(argv))
+    bin_path = shutil.which(opts.bin) or opts.bin
+
+    args = build_bubble_args(opts)
+
+    bubble_cmd = (
+        ["bwrap"]
+        + [item for group in args for item in group]
+        + ["--", bin_path]
+        + agent_args
+    )
+
+    if opts.dry_run:
+        logging.info(fmt_bubble_cmd(args, bin_path, agent_args))
+        sys.exit(0)
+
+    os.execvp("bwrap", bubble_cmd)

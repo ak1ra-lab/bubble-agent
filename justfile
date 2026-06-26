@@ -2,6 +2,9 @@
 default:
     @just --list --unsorted
 
+# Run all available recipes
+all: lint typecheck test coverage build docs-build
+
 # Sync development dependencies (may update uv.lock if pyproject.toml changed)
 sync *ARGS:
     uv sync {{ARGS}} --group dev
@@ -10,6 +13,11 @@ sync *ARGS:
 lint:
     uv run ruff check --fix src/ tests/
     uv run ruff format src/ tests/
+
+# Lint bash scripts
+lint-bash:
+    shfmt -i 4 -ci -w scripts/bubble-agent.sh
+    shellcheck scripts/bubble-agent.sh
 
 # Run static type checks with Astral ty
 typecheck:
@@ -25,7 +33,20 @@ coverage:
 
 # Build distribution packages
 build:
-    uv build -v
+    uv build
+
+# Install bubble-agent as a tool
+install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "${HOME}/.config/bubble-agent"
+    uv tool install .
+    install -m 644 bubble-agent.example.conf "${HOME}/.config/bubble-agent/bubble-agent.example.conf"
+
+# Uninstall bubble-agent
+uninstall:
+    uv tool uninstall bubble-agent
+    rm -f "${HOME}/.config/bubble-agent/bubble-agent.example.conf"
 
 # Serve documentation locally
 docs-serve:
