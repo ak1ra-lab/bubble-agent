@@ -187,7 +187,7 @@ def build_bubble_args(opts: argparse.Namespace) -> list[list[str]]:
     ws_files: list[str] = []
 
     for p in opts.paths or []:
-        expanded = expand_path(p)
+        expanded = os.path.abspath(expand_path(p))
         if expanded.endswith(".code-workspace"):
             if os.path.isfile(expanded):
                 ws_files.append(expanded)
