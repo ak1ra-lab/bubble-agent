@@ -171,7 +171,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_bubble_args(opts)
 
     if opts.dry_run:
-        logging.info(fmt_bubble_cmd(args, bin_path, agent_args))
+        path_value = next(
+            (g[2] for g in reversed(args) if g[0] == "--setenv" and g[1] == "PATH"),
+            os.environ.get("PATH", ""),
+        )
+        extra_groups = [["--ro-bind-data", "<patched:/etc/profile>", "/etc/profile"]]
+        logging.info(
+            "%s\n# patched:/etc/profile sets PATH=%s",
+            fmt_bubble_cmd(args, bin_path, agent_args, extra_groups=extra_groups),
+            path_value,
+        )
         sys.exit(0)
 
     _launch(args, bin_path, agent_args)

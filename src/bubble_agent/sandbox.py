@@ -2,7 +2,6 @@ import argparse
 import getpass
 import logging
 import os
-import re
 from pathlib import Path
 
 from bubble_agent.config import expand_path, load_config
@@ -10,16 +9,25 @@ from bubble_agent.workspace import parse_workspace, ws_folder_paths
 
 
 def fmt_bubble_cmd(
-    groups: list[list[str]], bin_path: str, agent_args: list[str]
+    groups: list[list[str]],
+    bin_path: str,
+    agent_args: list[str],
+    *,
+    extra_groups: list[list[str]] | None = None,
 ) -> str:
     """Format a ``bwrap`` command-line string for ``--dry-run`` output.
 
     Each group in *groups* is joined with spaces; groups are separated by
-    `` \\\n  `` for readability.
+    `` \\\n  `` for readability.  *extra_groups* are appended after
+    *groups* (useful for fd-based entries that exist in the real command
+    line but are not part of *groups*).
     """
     items: list[str] = ["bwrap"]
     for g in groups:
         items.append(" ".join(g))
+    if extra_groups:
+        for g in extra_groups:
+            items.append(" ".join(g))
     items.append("--")
     items.append(bin_path)
     items.extend(agent_args)
@@ -46,28 +54,18 @@ def make_data_fd(data: bytes) -> int:
     return r_fd
 
 
-_PATH_BLOCK_RE = re.compile(
-    r'if\s+\[\s*"\$\(id\s+-u\)"[^;]*;\s*then\b'
-    r".*?"
-    r"\bfi\b\s*\n\s*export\s+PATH\s*\n?",
-    re.DOTALL,
-)
-
-
 def patch_etc_profile(custom_path: str) -> bytes:
     """Return a patched ``/etc/profile`` that keeps *custom_path* in effect.
 
-    The standard ``id -u`` PATH-initialization block is removed and
-    *custom_path* is appended at the end so it always wins.  All other
-    content (``/etc/bash.bashrc``, ``/etc/profile.d/*``, …) is preserved.
+    The original content is preserved as-is; *custom_path* is appended at
+    the end so its ``PATH`` assignment always wins over any earlier
+    assignments within the same file.
     """
     try:
         original = Path("/etc/profile").read_text()
     except OSError:
         original = ""
-
-    patched = _PATH_BLOCK_RE.sub("", original)
-    patched = patched.rstrip("\n") + f'\nPATH="{custom_path}"\nexport PATH\n'
+    patched = original.rstrip("\n") + f'\nPATH="{custom_path}"\nexport PATH\n'
     return patched.encode()
 
 
