@@ -36,9 +36,9 @@ If you set an explicit `env:PATH:...` in the config, it **replaces** the inherit
 Login shells inside the sandbox (e.g. ``bash -l``, or tools that invoke login shells) source `/etc/profile`, which on most systems resets ``PATH`` to a system default.  This would undo custom `path-prepend` / `path-append` entries.
 
 To prevent this, bubble-agent **automatically patches** `/etc/profile` inside the sandbox:
-
-1. The standard ``id -u`` PATH-initialization block is removed.
-2. The sandbox ``PATH`` set via ``--setenv`` is appended at the end of the file, so it always takes effect.
+the sandbox ``PATH`` set via ``--setenv`` is appended at the end of the file.
+Since `/etc/profile` is executed top-to-bottom the last assignment always wins,
+so no content needs to be removed or rewritten.
 
 All other content in `/etc/profile` (sourcing of `/etc/bash.bashrc`, running `/etc/profile.d/*.sh` snippets, etc.) is preserved unchanged.  This patching is transparent and requires no configuration.
 
