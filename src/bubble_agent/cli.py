@@ -4,7 +4,6 @@ import argparse
 import logging
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -118,9 +117,10 @@ def _launch(args: list[list[str]], bin_path: str, agent_args: list[str]) -> None
 
     Serializes *args* into a NUL-separated pipe for ``--args <fd>``,
     patches ``/etc/profile`` to preserve the sandbox ``PATH``, and runs
-    bwrap via :func:`subprocess.run` with explicit ``pass_fds``.
+    bwrap via :func:`os.execvp`.
 
-    Does not return — calls :func:`sys.exit` with bwrap's exit code.
+    Does not return on success — ``os.execvp`` replaces the current
+    process.  On failure, prints an error and exits with code 1.
     """
     bwrap_payload = [item for group in args for item in group]
     args_data = b"\0".join(a.encode("utf-8") for a in bwrap_payload) + b"\0"
@@ -144,15 +144,13 @@ def _launch(args: list[list[str]], bin_path: str, agent_args: list[str]) -> None
     ] + agent_args
 
     try:
-        result = subprocess.run(bubble_cmd, pass_fds=[args_fd, profile_fd])
-    except FileNotFoundError:
+        os.execvp(bubble_cmd[0], bubble_cmd)
+    except OSError:
         logging.error("bwrap not found in PATH")
         sys.exit(1)
     finally:
         os.close(args_fd)
         os.close(profile_fd)
-
-    sys.exit(result.returncode)
 
 
 def main(argv: Sequence[str] | None = None) -> None:

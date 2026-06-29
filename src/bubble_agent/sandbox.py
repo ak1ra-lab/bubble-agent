@@ -37,11 +37,11 @@ def fmt_bubble_cmd(
 def make_data_fd(data: bytes) -> int:
     """Write *data* into a pipe and return the read-end file descriptor.
 
-    The caller is responsible for closing the returned fd.
-    Intended for passing arbitrary payloads to subprocesses via ``pass_fds``
-    (e.g. bwrap ``--args <fd>``).
+    Uses ``os.pipe2(0)`` to avoid ``FD_CLOEXEC`` so the fd survives
+    ``os.execvp``.  The caller is responsible for closing the returned fd
+    (the kernel will close any leaked fd automatically on process exit).
     """
-    r_fd, w_fd = os.pipe()
+    r_fd, w_fd = os.pipe2(0)
     try:
         while data:
             try:

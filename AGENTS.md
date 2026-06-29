@@ -45,8 +45,8 @@ Source lives under `src/bubble_agent/` with these modules:
 - Bwrap args are built as `list[list[str]]` (each inner list = one flag + its
   values), then serialized NUL-separated into an anonymous pipe and passed via
   `--args <fd>` for a clean `ps` listing.
-- `subprocess.run` with `pass_fds` is used for reliable fd inheritance
-  (preferred over `os.execvp`).
+- `os.pipe2(0)` is used to avoid `FD_CLOEXEC` so fd survives `os.execvp`,
+  allowing process replacement without a lingering Python parent.
 - `/etc/profile` inside the sandbox is patched via `--ro-bind-data` to remove
   the standard ``id -u`` PATH-initialization block and preserve the sandbox
   PATH set by `--setenv`.
