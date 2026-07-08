@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-07-08
+
+### Added
+
+- Auto-create default config file (`~/.config/bubble-agent/bubble-agent.conf`)
+  on first run from built-in example, eliminating manual copy steps
+
+### Changed
+
+- Replace `subprocess.run` with `os.execvp` + `os.pipe2(0)` for cleaner
+  process replacement — no lingering Python parent process
+
+### Fixed
+
+- Resolve CLI relative path arguments to absolute before bind-mounting
+
+## [0.1.1] - 2026-06-29
+
+### Changed
+
+- Simplify `/etc/profile` patching — append `PATH` at end of file instead of
+  regex removal of the `id -u` block
+- Include `/etc/profile` patch in `--dry-run` output so the printed command
+  matches actual execution
+
 ## [0.1.0] - 2026-06-26
 
 Initial release — a uv-managed Python package that launches coding agents
