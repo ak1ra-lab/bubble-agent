@@ -11,6 +11,7 @@ from typing import Sequence
 import argcomplete
 
 from bubble_agent import __version__
+from bubble_agent.config import ensure_config_file
 from bubble_agent.sandbox import (
     build_bubble_args,
     fmt_bubble_cmd,
@@ -166,6 +167,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     opts, agent_args = parse_cli(list(argv))
     bin_path = shutil.which(opts.bin) or opts.bin
 
+    ensure_config_file(opts.config)
     args = build_bubble_args(opts)
 
     if opts.dry_run:

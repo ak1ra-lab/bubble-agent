@@ -5,7 +5,13 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from bubble_agent.config import expand_path, has_unexpanded, load_config
+from bubble_agent.config import (
+    ensure_config_file,
+    expand_path,
+    get_example_config_content,
+    has_unexpanded,
+    load_config,
+)
 from bubble_agent.sandbox import fmt_bubble_cmd
 from bubble_agent.workspace import parse_workspace, ws_folder_paths
 
@@ -206,3 +212,31 @@ class TestDryRun:
         )
         assert result.returncode == 0
         assert str(folder) in result.stderr
+
+
+class TestEnsureConfigFile:
+    def test_creates_new_file(self, tmp_path):
+        conf = tmp_path / "new.conf"
+        ensure_config_file(conf)
+        assert conf.is_file()
+        content = conf.read_text()
+        assert "bubble-agent configuration file" in content
+
+    def test_does_not_overwrite_existing(self, tmp_path):
+        conf = tmp_path / "existing.conf"
+        conf.write_text("custom content")
+        ensure_config_file(conf)
+        assert conf.read_text() == "custom content"
+
+    def test_creates_parent_dirs(self, tmp_path):
+        conf = tmp_path / "deeply" / "nested" / "dirs" / "config.conf"
+        ensure_config_file(conf)
+        assert conf.is_file()
+
+
+class TestGetExampleConfigContent:
+    def test_returns_nonempty_string(self):
+        content = get_example_config_content()
+        assert len(content) > 0
+        assert "bubble-agent configuration file" in content
+        assert "bind:" in content

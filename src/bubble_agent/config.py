@@ -43,6 +43,21 @@ def has_unexpanded(s: str) -> bool:
     return "$" in s and UNEXPANDED_RE.search(s) is not None
 
 
+_HERE = Path(__file__).parent
+
+
+def get_example_config_content() -> str:
+    return (_HERE / "config" / "bubble-agent.example.conf").read_text(encoding="utf-8")
+
+
+def ensure_config_file(conf: Path) -> None:
+    if conf.is_file():
+        return
+    conf.parent.mkdir(parents=True, exist_ok=True)
+    conf.write_text(get_example_config_content(), encoding="utf-8")
+    logging.info("Created default config: %s", conf)
+
+
 def load_config(
     conf: Path,
 ) -> tuple[list[list[str]], list[str], list[str]]:

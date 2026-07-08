@@ -39,14 +39,11 @@ build:
 install:
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p "${HOME}/.config/bubble-agent"
     uv tool install .
-    install -m 644 bubble-agent.example.conf "${HOME}/.config/bubble-agent/bubble-agent.example.conf"
 
 # Uninstall bubble-agent
 uninstall:
     uv tool uninstall bubble-agent
-    rm -f "${HOME}/.config/bubble-agent/bubble-agent.example.conf"
 
 # Serve documentation locally
 docs-serve:
