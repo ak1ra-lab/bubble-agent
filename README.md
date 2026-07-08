@@ -45,14 +45,9 @@ bubble-agent ~/my-project                 # work in a specific directory
 bubble-agent --dry-run                    # preview the bwrap command
 ```
 
-Set up your [configuration](https://ak1ra-lab.github.io/bubble-agent/configuration/):
-
-```shell
-mkdir -p ~/.config/bubble-agent
-curl -o ~/.config/bubble-agent/bubble-agent.conf \
-  https://raw.githubusercontent.com/ak1ra-lab/bubble-agent/master/bubble-agent.example.conf
-# edit ~/.config/bubble-agent/bubble-agent.conf
-```
+A default [configuration](https://ak1ra-lab.github.io/bubble-agent/configuration/) is
+auto-created at `~/.config/bubble-agent/bubble-agent.conf` on first run — just run
+`bubble-agent` and then edit the file to customize.
 
 See [Documentation](https://ak1ra-lab.github.io/bubble-agent/) for full usage, configuration, and workspace features.
 

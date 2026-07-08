@@ -67,20 +67,14 @@ uv tool install .
 For development convenience, the repo includes a `justfile`:
 
 ```shell
-just install    # uv tool install . + copy example config as reference
+just install    # uv tool install .
 just uninstall  # uv tool uninstall bubble-agent
 ```
 
 ## Configuration
 
-Create your config file from the example:
-
-```shell
-mkdir -p ~/.config/bubble-agent
-curl -o ~/.config/bubble-agent/bubble-agent.conf \
-  https://raw.githubusercontent.com/ak1ra-lab/bubble-agent/master/bubble-agent.example.conf
-# edit ~/.config/bubble-agent/bubble-agent.conf
-```
+A default config file is auto-created at `~/.config/bubble-agent/bubble-agent.conf` on
+first run.  Edit it to customize bind mounts, environment variables, and other settings.
 
 See [Configuration](configuration.md) for details.
 
